@@ -363,9 +363,9 @@ public class BulkClientDriver{
   public String formatBoundaryQueryString(String threshold, int offset){
       return formatQueryString( new String[]{ this.boundaryField }, this.objectType,
         "WHERE " + (StringUtils.isBlank(this.bulkQueryCondition) ? "" :
-                      "AND " + this.bulkQueryCondition + " ") +
+                     this.bulkQueryCondition + " AND ") +
         this.boundaryField + " > '" + threshold + "'" +
-        " ORDER BY " + this.boundaryField + " ASC " +
+        " ORDER BY " + this.boundaryField + " ASC" +
         " LIMIT 1 OFFSET " + offset
       );
   }
