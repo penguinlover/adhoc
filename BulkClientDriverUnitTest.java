@@ -9,97 +9,113 @@ import com.sforce.ws.ConnectionException;
 public class BulkClientDriverUnitTest {
   private BulkClientDriver driver;
 
-  @Before
-  public void beforeEach(){
-    String username = "qiang@statefarm.com.datafull";
-    String password = "passw0rd1";
-    String baseAuthEndpoint = "https://cs10.salesforce.com/services/Soap/c";
-    String apiVersion = "26.0";
-    driver = new BulkClientDriver(username, password, baseAuthEndpoint, apiVersion);
-    driver.initializeConnections();
-    driver.setTestMode(false, 0);
-  }
-
-  @After
-  public void afterEach(){ driver = null; }
-
   @Test
-  public void testCSVReader() throws Exception {
-    // authEndpoint + job/750J00000000cpI/batch/751J00000003A2S/result/752J00000000A5k
-    driver.getBulkConnection().getQueryResultStream("750J00000000cpI", "751J00000003A2S", "752J00000000A5k");
-  }
-
-  //@Test
-  public void testGeneratePermEnabledBulkQueries(){
-    driver.setChunkingRule("ExctractionId__c", "TestObject__c", "000000", 249, null);
-    driver.setBulkQueryRule(new String[]{"Id","ExctractionId__c"}, null);
-    ArrayList<String> boundaries = driver.lookUpBoundaries();
-    System.out.println(boundaries);
-    LinkedList<String> queries = driver.generatePermEnabledBulkQueries(boundaries);
-    System.out.println(queries);
-
-    //driver.setChunkingRule("Id", "TestObject__c", null, null);
-    //driver.setBulkQueryRule(new String[]{"Id"}, null);
-    //ArrayList<String> fakeBoundaries = new ArrayList<String>();
-    //fakeBoundaries.add("00000000");
-    //fakeBoundaries.add("00002500");
-    //fakeBoundaries.add("00005000");
-    //fakeBoundaries.add("00007500");
-    //fakeBoundaries.add("less");
-    //fakeBoundaries.add("more");
-    //System.out.println(driver.generatePermEnabledBulkQueries(fakeBoundaries));
-  }
-
-  //@Test
-  public void lookUpBoundaries(){
-    driver.setChunkingRule("ExctractionId__c", "TestObject__c", "000000", 249, null);
-    System.out.println(driver.lookUpBoundaries());
-  }
-
-  //@Test
   public void testFormatQueryString() {
+    driver = new BulkClientDriver(null, null, null, null);
     String expected = "SELECT Id,Name,CreatedDate FROM Account WHERE Rating = 'Hot'";
       assertEquals(expected,
-        driver.formatQueryString(new String[]{"Id","Name","CreatedDate"}, "Account", "WHERE Rating = 'Hot'"));
+        driver.formatQueryString(new String[]{"Id","Name","CreatedDate"}, 
+          "Account", "WHERE Rating = 'Hot'"));
   }
+
+  @Test
+  public void testFormatBoundaryQueryString(){
+    driver = new BulkClientDriver(null, null, null, null);
+    driver.setBulkQueryRule(null, "CreatedDate = '2012-12-13'");
+    driver.setChunkingRule("Id", "Account", null, 0, null);
+
+    String threshold = "000000000000000";
+    int offset = 249999;
+
+    String expected = "SELECT Id FROM Account " +
+                      "WHERE CreatedDate = '2012-12-13' " +
+                      "AND Id > '000000000000000' " +
+                      "ORDER BY Id ASC " +
+                      "LIMIT 1 OFFSET 249999";
+
+    assertEquals(expected,
+        driver.formatBoundaryQueryString(threshold, offset));
+  }
+
+  //@Before
+  //public void beforeEach(){
+  //  String username = "qiang@statefarm.com.datafull";
+  //  String password = "passw0rd1";
+  //  String baseAuthEndpoint = "https://cs10.salesforce.com/services/Soap/c";
+  //  String apiVersion = "26.0";
+  //  driver = new BulkClientDriver(username, password, baseAuthEndpoint, apiVersion);
+  //  driver.initializeConnections();
+  //  driver.setTestMode(false, 0);
+  //}
+
+  //@After
+  //public void afterEach(){ driver = null; }
 
   //@Test
-  public void testSetUpSOAPConnection(){
-    assertNotNull(driver.getSessionId());
-    assertNotNull(driver.getEnterpriseConnection());
-  }
+  //public void testGeneratePermEnabledBulkQueries(){
+  //  driver.setChunkingRule("ExctractionId__c", "TestObject__c", "000000", 249, null);
+  //  driver.setBulkQueryRule(new String[]{"Id","ExctractionId__c"}, null);
+  //  ArrayList<String> boundaries = driver.lookUpBoundaries();
+  //  System.out.println(boundaries);
+  //  LinkedList<String> queries = driver.generatePermEnabledBulkQueries(boundaries);
+  //  System.out.println(queries);
+
+  //  //driver.setChunkingRule("Id", "TestObject__c", null, null);
+  //  //driver.setBulkQueryRule(new String[]{"Id"}, null);
+  //  //ArrayList<String> fakeBoundaries = new ArrayList<String>();
+  //  //fakeBoundaries.add("00000000");
+  //  //fakeBoundaries.add("00002500");
+  //  //fakeBoundaries.add("00005000");
+  //  //fakeBoundaries.add("00007500");
+  //  //fakeBoundaries.add("less");
+  //  //fakeBoundaries.add("more");
+  //  //System.out.println(driver.generatePermEnabledBulkQueries(fakeBoundaries));
+  //}
 
   //@Test
-  public void testCreateJob() throws ConnectionException, AsyncApiException{
-    JobInfo job = driver.createJob("Account", OperationEnum.query, ConcurrencyMode.Parallel);
-    assertNotNull(job.getId());
-    //tear down
-    driver.closeJob(job.getId());
-  }
+  //public void lookUpBoundaries(){
+  //  driver.setChunkingRule("ExctractionId__c", "TestObject__c", "000000", 249, null);
+  //  System.out.println(driver.lookUpBoundaries());
+  //}
+
 
   //@Test
-  public void testGenerateBulkQueries(){
-    driver.setChunkingRule("TestAutoNum__c", "TestObject__c", null, 249, null);
-    driver.setBulkQueryRule(new String[]{"Id", "TestAutoNum__c"}, "CreatedDate = 1987-10-13");
-    for(String str: driver.generateBulkQueries(0, 999)){
-      System.out.println(str);
-    }
-  }
+  //public void testSetUpSOAPConnection(){
+  //  assertNotNull(driver.getSessionId());
+  //  assertNotNull(driver.getEnterpriseConnection());
+  //}
 
   //@Test
-  public void testGetMinMaxChunk(){
-    String boundaryField  = "TestAutoNum__c";
-    String objectType     = "TestObject__c";
-    HashMap<String, String> hm = new HashMap<String, String>();
-    hm.put("LB", "ORDER BY " + boundaryField + " ASC NULLS LAST LIMIT 1");
-    hm.put("UB", "ORDER BY " + boundaryField + " DESC NULLS LAST LIMIT 1");
+  //public void testCreateJob() throws ConnectionException, AsyncApiException{
+  //  JobInfo job = driver.createJob("Account", OperationEnum.query, ConcurrencyMode.Parallel);
+  //  assertNotNull(job.getId());
+  //  //tear down
+  //  driver.closeJob(job.getId());
+  //}
 
-    driver.setChunkingRule(boundaryField, objectType, null, 249, hm);
-    int lowerBound = driver.getMinMaxChunk("LB");
-    int upperBound = driver.getMinMaxChunk("UB");
-    assertEquals(0, lowerBound);
-    assertEquals(999, upperBound);
-  }
+  //@Test
+  //public void testGenerateBulkQueries(){
+  //  driver.setChunkingRule("TestAutoNum__c", "TestObject__c", null, 249, null);
+  //  driver.setBulkQueryRule(new String[]{"Id", "TestAutoNum__c"}, "CreatedDate = 1987-10-13");
+  //  for(String str: driver.generateBulkQueries(0, 999)){
+  //    System.out.println(str);
+  //  }
+  //}
+
+  //@Test
+  //public void testGetMinMaxChunk(){
+  //  String boundaryField  = "TestAutoNum__c";
+  //  String objectType     = "TestObject__c";
+  //  HashMap<String, String> hm = new HashMap<String, String>();
+  //  hm.put("LB", "ORDER BY " + boundaryField + " ASC NULLS LAST LIMIT 1");
+  //  hm.put("UB", "ORDER BY " + boundaryField + " DESC NULLS LAST LIMIT 1");
+
+  //  driver.setChunkingRule(boundaryField, objectType, null, 249, hm);
+  //  int lowerBound = driver.getMinMaxChunk("LB");
+  //  int upperBound = driver.getMinMaxChunk("UB");
+  //  assertEquals(0, lowerBound);
+  //  assertEquals(999, upperBound);
+  //}
 
   //@Test public void testJavaReflection() throws ClassNotFoundException,
   //  ConnectionException, IllegalAccessException, java.lang.reflect.InvocationTargetException
