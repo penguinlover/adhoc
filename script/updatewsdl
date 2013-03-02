@@ -1,0 +1,2 @@
+#!/bin/zsh
+java -cp jars/force-wsc-27.0.0-jar-with-dependencies.jar com.sforce.ws.tools.wsdlc wsdls/enterprise.wsdl.xml jars/enterprise.jar

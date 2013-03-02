@@ -1,0 +1,61 @@
+## Authentication related configurations
+
+# Your Salesforce username, password
+# Add security token to the password
+username: qiang@statefarm.com.datafull
+password: passw0rd1
+
+# Choose the best api version, not necessarily the newest
+# defaults to 26.0
+apiVersion: 26.0
+
+# Api version specified earlier will be concatenated here
+# this together with the apiVersion will generate the final authEndpoint
+baseAuthEndpoint: https://cs10.salesforce.com/services/Soap/c
+
+
+## Chunking query configurations
+
+# Boundary field is used as the chunking target field
+# This should be modified
+boundaryField: Id
+
+# The subject of this bulk query which contains the boundary field
+sobjectType: Account
+
+# Initial chunking threshold 15 digits id
+# This value should be the minimum value of all the possible values of boundaryField
+initialChunkingThreshold: 000000000000000
+# The chunking size
+# 249999 is the magic number which gain the maximum performance
+chunkSize: 249
+
+# The fields that bulk query going to retrieve
+bulkQueryFields:
+  - Id
+  - ClientIdentifier__c
+
+# Optional
+# The bulk query condition, this will also be used in chunking query
+bulkQueryCondition: #<CreatedDate = '2013-02-01'>
+
+
+## Test/Development config
+
+# The following two value is used for testing purpose
+# if "isTest" is set to true, then there will be at most "numberOfChunks" batches created
+# if "isTest" is set to false, then the value of "numberOfChunks" will be ignored and
+# the all the records will be retrieved by bulk query
+isTest: true
+numberOfChunks: 5
+
+
+## bulk query result processing config
+
+baseDir: data
+outputSummaryFileName: bulk_query_summary_
+outputRecordsFileNamePrefix: bulk_query_
+
+# If true, will concatenate all .csv files into one called xxx_all.csv
+concatenate: true
+

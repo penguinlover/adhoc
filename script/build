@@ -1,0 +1,3 @@
+#!/bin/zsh
+# TODO: rebuild
+javac -cp "jars/*" BulkClientDriverUnitTest.java BulkClientDriver.java DriverRunner.java
