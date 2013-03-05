@@ -40,7 +40,8 @@ public class DriverRunner{
 
     driver.initializeConnections();
 
-    driver.doBulkQuery();
+    //driver.doBulkQuery();
+    driver.doPipelinedBulkQuery();
 
     //try{
     //  System.out.println(driver.getEnterpriseConnection().queryAll("SELECT Id,ClientIdentifier__c FROM Account WHERE Id > '001J000000HOjwGIAT' AND Id <= '001J000000HcQipIAF'"));

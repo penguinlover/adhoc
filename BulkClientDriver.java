@@ -1,6 +1,7 @@
 import java.io.*;
 import java.util.*;
 import java.lang.reflect.Method;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.sforce.async.*;
 import com.sforce.soap.enterprise.EnterpriseConnection;
@@ -52,7 +53,6 @@ public class BulkClientDriver{
   public void doBulkQuery(){
     StopWatch sw = new StopWatch();
     try {
-      //LinkedList<String> toBeProcessedQueries = generateBulkQueries(getMinMaxChunk("LB"), getMinMaxChunk("UB"));
       LinkedList<String> toBeProcessedQueries = generatePermEnabledBulkQueries(lookUpBoundaries());
 
       debug("Bulk queries created.\n");
@@ -173,7 +173,7 @@ public class BulkClientDriver{
       toBeProcessedQueries.add(queryString);
     }
 
-    if(boundaries.get(boundaries.size()-1) == "more"){
+    if(boundaries.get(boundaries.size()-1).equals("more")){
       queryString = formatQueryString(this.bulkQueryFields, this.objectType,
           "WHERE " + (StringUtils.isBlank(this.bulkQueryCondition) ? "" :
                         "AND " + this.bulkQueryCondition + " ") +
@@ -280,6 +280,103 @@ public class BulkClientDriver{
     return boundaries;
   }
 
+  public void doPipelinedBulkQuery(){
+    String lowerBound = this.initialChunkingThreshold;
+    String upperBound;
+    JobInfo job = null;
+    Thread monitorThread = null;
+    try {
+      job = createJob(this.objectType, OperationEnum.query, ConcurrencyMode.Parallel);
+      // start monitor thread
+      monitorThread = new Thread(new DriverMonitor(job, generateNewBulkConnection()));
+      debug("Driver monitor started...");
+      monitorThread.start();
+
+      int c = 0;
+      while(this.isTest ? c < this.numberOfChunks : true){
+        upperBound = lookUpBoundary(lowerBound);
+
+        if(upperBound.equals("less")){ break; }
+
+        generatePermEnabledBulkQuery(lowerBound, upperBound);
+        BatchInfo batchInfo = runBulkQuery(job,
+            generatePermEnabledBulkQuery(lowerBound, upperBound));
+        debug("\nBatch job [" + batchInfo.getId() + "] enqueued.\n");
+        lowerBound = upperBound;
+        c++;
+      }
+    } catch(Exception e){
+      e.printStackTrace();
+    } finally {
+      closeJob(job.getId());
+      monitorThread.interrupt();
+    }
+  }
+
+  public String lookUpBoundary(String lowerBound) throws ConnectionException{
+    if(lowerBound.equals("more")){
+      return "less"; //sentinel value
+    }
+    String boundaryQuery = formatBoundaryQueryString(lowerBound, this.chunkSize);
+    debug("\nGenerated boundary query: [" + boundaryQuery + "]");
+    QueryResult queryResult = this.enterpriseConnection.query(boundaryQuery);
+    if(queryResult.getSize() == 0){
+      //need to do another query to find out if there are more records
+      queryResult = this.enterpriseConnection.query(
+                      formatBoundaryQueryString(lowerBound, 0));
+      if(queryResult.getSize() > 0){
+        return "more"; //sentinel value
+      } else {
+        return "less"; //sentinel value
+      }
+    } else {
+      return queryResult.getRecords()[0].getId();
+    }
+  }
+
+  public String generatePermEnabledBulkQuery(String lowerBound, String upperBound){
+    String queryString;
+    if(upperBound != "more"){
+      queryString = formatQueryString(this.bulkQueryFields, this.objectType,
+          "WHERE " + (StringUtils.isBlank(this.bulkQueryCondition) ? "" :
+                        this.bulkQueryCondition + " AND ") +
+          this.boundaryField + " > '" + lowerBound + "' AND " +
+          this.boundaryField + " <= '" + upperBound + "'");
+    } else {
+      // upperBound equals "more"
+      queryString = formatQueryString(this.bulkQueryFields, this.objectType,
+          "WHERE " + (StringUtils.isBlank(this.bulkQueryCondition) ? "" :
+                        this.bulkQueryCondition + " AND ") +
+          this.boundaryField + " > '" + lowerBound + "'"
+      );
+    }
+    debug("\nGenerated bulk query: [" + queryString + "]\n");
+    return queryString;
+  }
+
+  public BatchInfo runBulkQuery(JobInfo job, String bulkQuery) 
+    throws AsyncApiException, InterruptedException
+  {
+    // if number of queued and running jobs is more than 10, stop adding new jobs
+    JobInfo _job = job;
+    int numOfQueuedJob = 0;
+
+    do {
+      _job = this.bulkConnection.getJobStatus(_job.getId());
+      numOfQueuedJob = _job.getNumberBatchesQueued() + _job.getNumberBatchesInProgress();
+      debug("Jobs currently in queue: " + numOfQueuedJob);
+      if(numOfQueuedJob < 10){
+        break;
+      } else {
+        debug("Too many jobs in queue wait for complete...");
+        Thread.sleep(10 * 1000);
+      }
+    } while(numOfQueuedJob > 10);
+
+    ByteArrayInputStream bout = new ByteArrayInputStream(bulkQuery.getBytes());
+    return this.bulkConnection.createBatchFromStream(job, bout);
+  }
+
   private void setUpEnterpriseConnection(){
     ConnectorConfig enterpriseConfig = new ConnectorConfig();
     enterpriseConfig.setUsername(this.username);
@@ -300,7 +397,7 @@ public class BulkClientDriver{
     } else {
       ConnectorConfig config = new ConnectorConfig();
       config.setSessionId(this.sessionId);
-      config.setRestEndpoint(this.authEndpoint.substring(0, this.authEndpoint.indexOf("Soap/")) 
+      config.setRestEndpoint(this.authEndpoint.substring(0, this.authEndpoint.indexOf("Soap/"))
           + "async/" + this.apiVersion);
       // set compression to false, tracemessage to true when debugging 
       config.setCompression(true);
@@ -312,6 +409,37 @@ public class BulkClientDriver{
         e.printStackTrace();
       }
     }
+  }
+
+  private BulkConnection generateNewBulkConnection(){
+    // get a new session
+    String newSessionId = null;
+    ConnectorConfig enterpriseConfig = new ConnectorConfig();
+    enterpriseConfig.setUsername(this.username);
+    enterpriseConfig.setPassword(this.password);
+    enterpriseConfig.setAuthEndpoint(this.authEndpoint);
+
+    try {
+      new EnterpriseConnection(enterpriseConfig);
+      newSessionId = enterpriseConfig.getSessionId();
+    } catch(ConnectionException e){
+      e.printStackTrace();
+    }
+
+    ConnectorConfig config = new ConnectorConfig();
+    config.setSessionId(newSessionId);
+    config.setRestEndpoint(this.authEndpoint.substring(0, this.authEndpoint.indexOf("Soap/"))
+        + "async/" + this.apiVersion);
+    // set compression to false, tracemessage to true when debugging 
+    config.setCompression(true);
+    config.setTraceMessage(false);
+    BulkConnection connection = null;
+    try {
+      connection = new BulkConnection(config);
+    } catch (AsyncApiException e){
+      e.printStackTrace();
+    }
+    return connection;
   }
 
   public JobInfo createJob(String sobjectType, OperationEnum operationType,
@@ -326,11 +454,15 @@ public class BulkClientDriver{
     return job;
   }
 
-  public void closeJob(String jobId) throws AsyncApiException {
-    JobInfo job = new JobInfo();
-    job.setId(jobId);
-    job.setState(JobStateEnum.Closed);
-    this.bulkConnection.updateJob(job);
+  public void closeJob(String jobId){
+    try{
+      JobInfo job = new JobInfo();
+      job.setId(jobId);
+      job.setState(JobStateEnum.Closed);
+      this.bulkConnection.updateJob(job);
+    } catch(AsyncApiException e){
+      e.printStackTrace();
+    }
   }
 
   public void awaitCompletion(JobInfo job, List<BatchInfo> batchInfoList)

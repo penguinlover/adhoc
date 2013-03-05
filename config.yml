@@ -17,7 +17,7 @@ baseAuthEndpoint: https://cs10.salesforce.com/services/Soap/c
 ## Chunking query configurations
 
 # Boundary field is used as the chunking target field
-# This should be modified
+# This should not be modified
 boundaryField: Id
 
 # The subject of this bulk query which contains the boundary field
@@ -25,10 +25,10 @@ sobjectType: Account
 
 # Initial chunking threshold 15 digits id
 # This value should be the minimum value of all the possible values of boundaryField
-initialChunkingThreshold: 000000000000000
+initialChunkingThreshold: 000000000000000000
 # The chunking size
 # 249999 is the magic number which gain the maximum performance
-chunkSize: 249
+chunkSize: 249999
 
 # The fields that bulk query going to retrieve
 bulkQueryFields:
@@ -37,7 +37,7 @@ bulkQueryFields:
 
 # Optional
 # The bulk query condition, this will also be used in chunking query
-bulkQueryCondition: #<CreatedDate = '2013-02-01'>
+bulkQueryCondition: #<CreatedDate = 2012-12-12T12:00:00>
 
 
 ## Test/Development config
