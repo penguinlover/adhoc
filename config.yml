@@ -2,8 +2,8 @@
 
 # Your Salesforce username, password
 # Add security token to the password
-username: qiang@statefarm.com.datafull
-password: passw0rd1
+username: # username
+password: # password
 
 # Choose the best api version, not necessarily the newest
 # defaults to 26.0
@@ -11,7 +11,7 @@ apiVersion: 26.0
 
 # Api version specified earlier will be concatenated here
 # this together with the apiVersion will generate the final authEndpoint
-baseAuthEndpoint: https://cs10.salesforce.com/services/Soap/c
+baseAuthEndpoint: # base auth endpoint
 
 
 ## Chunking query configurations
