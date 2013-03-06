@@ -285,12 +285,15 @@ public class BulkClientDriver{
     String upperBound;
     JobInfo job = null;
     Thread monitorThread = null;
+
+    StopWatch sw = new StopWatch();
+    sw.start();
     try {
       job = createJob(this.objectType, OperationEnum.query, ConcurrencyMode.Parallel);
       // start monitor thread
-      monitorThread = new Thread(new DriverMonitor(job, generateNewBulkConnection()));
-      debug("Driver monitor started...");
-      monitorThread.start();
+      //monitorThread = new Thread(new DriverMonitor(job, generateNewBulkConnection()));
+      //debug("Driver monitor started...");
+      //monitorThread.start();
 
       int c = 0;
       while(this.isTest ? c < this.numberOfChunks : true){
@@ -299,8 +302,7 @@ public class BulkClientDriver{
         if(upperBound.equals("less")){ break; }
 
         generatePermEnabledBulkQuery(lowerBound, upperBound);
-        BatchInfo batchInfo = runBulkQuery(job,
-            generatePermEnabledBulkQuery(lowerBound, upperBound));
+        BatchInfo batchInfo = runBulkQuery(job, generatePermEnabledBulkQuery(lowerBound, upperBound));
         debug("\nBatch job [" + batchInfo.getId() + "] enqueued.\n");
         lowerBound = upperBound;
         c++;
@@ -309,8 +311,10 @@ public class BulkClientDriver{
       e.printStackTrace();
     } finally {
       closeJob(job.getId());
-      monitorThread.interrupt();
+      //monitorThread.interrupt();
     }
+    sw.stop();
+    debug("\nTotal time used: " + sw.toString());
   }
 
   public String lookUpBoundary(String lowerBound) throws ConnectionException{
@@ -354,7 +358,7 @@ public class BulkClientDriver{
     return queryString;
   }
 
-  public BatchInfo runBulkQuery(JobInfo job, String bulkQuery) 
+  public BatchInfo runBulkQuery(JobInfo job, String bulkQuery)
     throws AsyncApiException, InterruptedException
   {
     // if number of queued and running jobs is more than 10, stop adding new jobs

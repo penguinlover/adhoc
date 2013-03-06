@@ -1,9 +1,10 @@
+########################################
 ## Authentication related configurations
 
 # Your Salesforce username, password
 # Add security token to the password
 username: qiang@statefarm.com.datafull
-password: passw0rd1
+password: passw0rd2
 
 # Choose the best api version, not necessarily the newest
 # defaults to 26.0
@@ -13,7 +14,7 @@ apiVersion: 26.0
 # this together with the apiVersion will generate the final authEndpoint
 baseAuthEndpoint: https://cs10.salesforce.com/services/Soap/c
 
-
+################################
 ## Chunking query configurations
 
 # Boundary field is used as the chunking target field
@@ -37,19 +38,21 @@ bulkQueryFields:
 
 # Optional
 # The bulk query condition, this will also be used in chunking query
+# This field is problematic, need futher investigation
+# !! so don't assign any value now
 bulkQueryCondition: #<CreatedDate = 2012-12-12T12:00:00>
 
-
+##########################
 ## Test/Development config
 
 # The following two value is used for testing purpose
 # if "isTest" is set to true, then there will be at most "numberOfChunks" batches created
 # if "isTest" is set to false, then the value of "numberOfChunks" will be ignored and
 # the all the records will be retrieved by bulk query
-isTest: true
+isTest: false
 numberOfChunks: 5
 
-
+######################################
 ## bulk query result processing config
 
 baseDir: data
